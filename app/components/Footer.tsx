@@ -1,9 +1,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (     
     <footer className="relative z-[60] mt-auto border-t border-gray-200 bg-white pb-24 pt-8 md:pb-8">
@@ -30,7 +35,7 @@ export default function Footer() {
 
           <div className="mt-4 text-sm leading-6 text-gray-500">
             <p>
-              © {currentYear} Hablando Claro.
+              © {currentYear ?? ""} Hablando Claro.
             </p>
             <p>
               Todos los derechos reservados.
