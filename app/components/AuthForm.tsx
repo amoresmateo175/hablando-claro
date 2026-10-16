@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function AuthForm() {
@@ -12,40 +14,84 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [nombre, setNombre] = useState("");
 
-  
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
     setIsError(false);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: normalizedEmail,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          const msg = error.message.toLowerCase();
 
-        setMessage("Login successful.");
+          if (
+            msg.includes("invalid login credentials") ||
+            msg.includes("invalid_credentials")
+          ) {
+            throw new Error(
+              "El correo o la contraseña son incorrectos. Verifica tus datos e inténtalo de nuevo."
+            );
+          }
+
+          if (msg.includes("email not confirmed")) {
+            throw new Error(
+              "Debes confirmar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada."
+            );
+          }
+
+          throw error;
+        }
+
+        setMessage("Has iniciado sesión correctamente.");
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
+            emailRedirectTo: "https://hablando-claro-green.vercel.app/",
             data: {
               nombre: nombre.trim(),
             },
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          const msg = error.message.toLowerCase();
+
+          if (
+            msg.includes("already registered") ||
+            msg.includes("already exists") ||
+            msg.includes("user already registered")
+          ) {
+            throw new Error(
+              "Este correo electrónico ya está registrado. Intenta iniciar sesión."
+            );
+          }
+
+          if (
+            msg.includes("password") &&
+            (msg.includes("weak") || msg.includes("short"))
+          ) {
+            throw new Error(
+              "La contraseña es demasiado débil. Elige una contraseña más segura."
+            );
+          }
+
+          throw error;
+        }
 
         setMessage(
           data.session
-            ? "Registration successful."
-            : "Check your email to confirm your account."
+            ? "Tu cuenta se ha creado correctamente."
+            : "Si el registro se ha procesado correctamente, recibirás un correo para confirmar tu cuenta. Revisa también la carpeta de spam."
         );
       }
     } catch (error) {
@@ -53,11 +99,18 @@ export default function AuthForm() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "An unexpected error occurred."
+          : "Ocurrió un error inesperado. Inténtalo de nuevo."
       );
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleMode() {
+    setIsLogin((current) => !current);
+    setMessage("");
+    setIsError(false);
+    setPassword("");
   }
 
   return (
@@ -95,6 +148,7 @@ export default function AuthForm() {
             />
           </div>
         )}
+
         <div>
           <label
             htmlFor="auth-email"
@@ -102,6 +156,7 @@ export default function AuthForm() {
           >
             Email
           </label>
+
           <input
             id="auth-email"
             type="email"
@@ -121,6 +176,7 @@ export default function AuthForm() {
           >
             Password
           </label>
+
           <input
             id="auth-password"
             type="password"
@@ -133,6 +189,17 @@ export default function AuthForm() {
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
         </div>
+
+        {isLogin && (
+          <div className="text-right">
+            <Link
+              href="/recover-password"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >
+              Forgot your password?
+            </Link>
+          </div>
+        )}
 
         {message && (
           <p
@@ -166,11 +233,7 @@ export default function AuthForm() {
           : "Already have an account?"}{" "}
         <button
           type="button"
-          onClick={() => {
-            setIsLogin((current) => !current);
-            setMessage("");
-            setIsError(false);
-          }}
+          onClick={toggleMode}
           className="font-semibold text-blue-600 hover:text-blue-800"
         >
           {isLogin ? "Sign Up" : "Sign In"}
